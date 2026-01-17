@@ -12,37 +12,76 @@ export function useShopping() {
                 return false;
             }
 
+            // Check if product exists and is available
+            const { data: product, error: productError } = await supabase
+                .from('products')
+                .select('id, available_quantity, product_status')
+                .eq('id', productId)
+                .single();
+
+            if (productError || !product) {
+                showToast('Product not found', 'error');
+                return false;
+            }
+
+            if (product.product_status !== 'published') {
+                showToast('This product is not available', 'error');
+                return false;
+            }
+
             // Get or create cart
-            let { data: cart } = await supabase.from('cart').select('id').eq('user_id', user.id).maybeSingle();
+            let { data: cart, error: cartFetchError } = await supabase
+                .from('cart')
+                .select('id')
+                .eq('user_id', user.id)
+                .maybeSingle();
+
+            if (cartFetchError) throw cartFetchError;
 
             if (!cart) {
-                const { data: newCart, error: cartError } = await supabase
+                const { data: newCart, error: cartCreateError } = await supabase
                     .from('cart')
                     .insert({ user_id: user.id })
                     .select('id')
                     .single();
 
-                if (cartError) throw cartError;
+                if (cartCreateError) throw cartCreateError;
                 cart = newCart;
             }
 
             // Check if item already in cart
-            const { data: existingItem } = await supabase
+            const { data: existingItem, error: existingItemError } = await supabase
                 .from('cart_items')
                 .select('id, quantity')
                 .eq('cart_id', cart.id)
                 .eq('product_id', productId)
                 .maybeSingle();
 
+            if (existingItemError) throw existingItemError;
+
             if (existingItem) {
+                // Check if adding more would exceed available quantity
+                const newQuantity = existingItem.quantity + 1;
+                if (product.available_quantity && newQuantity > product.available_quantity) {
+                    showToast(`Only ${product.available_quantity} items available`, 'error');
+                    return false;
+                }
+
                 // Update quantity
                 const { error: updateError } = await supabase
                     .from('cart_items')
-                    .update({ quantity: existingItem.quantity + 1 })
+                    .update({ quantity: newQuantity })
                     .eq('id', existingItem.id);
 
                 if (updateError) throw updateError;
+                showToast('Cart updated!');
             } else {
+                // Check if product is in stock
+                if (product.available_quantity && product.available_quantity < 1) {
+                    showToast('This product is out of stock', 'error');
+                    return false;
+                }
+
                 // Insert new item
                 const { error: insertError } = await supabase
                     .from('cart_items')
@@ -53,9 +92,9 @@ export function useShopping() {
                     });
 
                 if (insertError) throw insertError;
+                showToast('Item added to cart!');
             }
 
-            showToast('Item added to cart!');
             return true;
         } catch (error: any) {
             console.error('Error adding to cart:', error);

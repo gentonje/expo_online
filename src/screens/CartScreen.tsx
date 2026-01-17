@@ -1,12 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { ShoppingCart, Trash2, Plus, Minus, Package, ChevronLeft } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
-
-
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useFeedback } from '../contexts/FeedbackContext';
-
 
 export default function CartScreen() {
     const [cartItems, setCartItems] = useState<any[]>([]);
@@ -15,30 +12,44 @@ export default function CartScreen() {
     const { showToast } = useFeedback();
     const navigation = useNavigation<any>();
 
-
-
-    useEffect(() => {
-        fetchCart();
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            fetchCart();
+        }, [])
+    );
 
     const fetchCart = async () => {
         try {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            if (!user) {
+                setCartItems([]);
+                setTotal(0);
+                return;
+            }
 
             // First get or create cart
-            let { data: cart } = await supabase.from('cart').select('id').eq('user_id', user.id).maybeSingle();
+            let { data: cart, error: cartFetchError } = await supabase
+                .from('cart')
+                .select('id')
+                .eq('user_id', user.id)
+                .maybeSingle();
 
+            if (cartFetchError) throw cartFetchError;
 
             if (!cart) {
-                const { data: newCart } = await supabase.from('cart').insert({ user_id: user.id }).select('id').single();
+                const { data: newCart, error: cartCreateError } = await supabase
+                    .from('cart')
+                    .insert({ user_id: user.id })
+                    .select('id')
+                    .single();
+                
+                if (cartCreateError) throw cartCreateError;
                 cart = newCart;
             }
 
-
             if (cart) {
-                const { data: items, error } = await supabase
+                const { data: items, error: itemsError } = await supabase
                     .from('cart_items')
                     .select(`
                         id,
@@ -50,17 +61,17 @@ export default function CartScreen() {
                             storage_path
                         )
                     `)
-                    .eq('cart_id', cart.id);
+                    .eq('cart_id', cart.id)
+                    .order('created_at', { ascending: false });
 
-                if (error) throw error;
+                if (itemsError) throw itemsError;
                 setCartItems(items || []);
                 calculateTotal(items || []);
             }
         } catch (error: any) {
             console.error('Error fetching cart:', error);
-            showToast('Failed to load cart', 'error');
+            showToast(error.message || 'Failed to load cart', 'error');
         } finally {
-
             setLoading(false);
         }
     };
