@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { Heart, Package, ShoppingBag, ChevronLeft } from 'lucide-react-native';
+import { Heart, ShoppingBag, ChevronLeft } from 'lucide-react-native';
 
 import { useShopping } from '../hooks/useShopping';
 import { useFeedback } from '../contexts/FeedbackContext';
 
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import ProductGrid from '../components/ProductGrid';
+import ProductCard from '../components/ProductCard';
 
 const AnimatedPressable = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -41,7 +43,8 @@ export default function WishlistScreen() {
                         title,
                         price,
                         storage_path,
-                        description
+                        description,
+                        currency
                     )
                 `)
                 .eq('user_id', user.id);
@@ -86,11 +89,9 @@ export default function WishlistScreen() {
                 <ActivityIndicator size="large" color="#2563eb" />
             ) : (
                 <ScrollView
-                    className="flex-1 p-4"
+                    className="flex-1"
                     contentContainerStyle={{ paddingBottom: 100 }}
                 >
-
-
                     {items.length === 0 ? (
                         <View className="items-center justify-center mt-20">
                             <Heart size={80} color="#cbd5e1" fill="#f1f5f9" />
@@ -103,41 +104,32 @@ export default function WishlistScreen() {
                             </TouchableOpacity>
                         </View>
                     ) : (
-                        <View className="flex-row flex-wrap justify-between">
-                            {items.map((item) => (
-                                <View key={item.id} className="bg-white rounded-2xl border border-gray-100 mb-4 shadow-sm overflow-hidden w-[48%]">
-                                    <View className="aspect-square bg-gray-100">
-                                        {item.products?.storage_path ? (
-                                            <Image
-                                                source={{ uri: `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/images/${item.products.storage_path}` }}
-                                                className="w-full h-full"
-                                            />
-                                        ) : (
-                                            <Package size={40} color="#94a3b8" />
-                                        )}
-                                        <TouchableOpacity
-                                            onPress={() => handleRemoveFromWishlist(item.id)}
-                                            className="absolute top-2 right-2 bg-white/80 p-2 rounded-full"
-                                        >
-                                            <Heart size={18} color="#ef4444" fill="#ef4444" />
-                                        </TouchableOpacity>
-                                    </View>
-                                    <View className="p-3">
-                                        <Text className="text-base font-bold text-gray-900" numberOfLines={1}>{item.products?.title}</Text>
-                                        <Text className="text-orange-600 font-bold mt-1">${item.products?.price}</Text>
-                                        <AnimatedPressable
-                                            onPress={() => handleAddToCart(item.products.id)}
-                                            className="mt-3 bg-blue-600 py-2 rounded-lg items-center flex-row justify-center active:scale-95 transition-all"
-                                        >
-                                            <ShoppingBag color="white" size={14} />
-                                            <Text className="text-white text-xs font-bold ml-1">Add to Cart</Text>
-                                        </AnimatedPressable>
-
-
-                                    </View>
-                                </View>
-                            ))}
-                        </View>
+                        <ProductGrid
+                            items={items}
+                            renderItem={(item) => (
+                                <ProductCard
+                                    product={item.products}
+                                    actions={
+                                        <View className="space-y-2">
+                                            <AnimatedPressable
+                                                onPress={() => handleAddToCart(item.products.id)}
+                                                className="bg-blue-600 py-2 rounded-lg items-center flex-row justify-center active:scale-95"
+                                            >
+                                                <ShoppingBag color="white" size={14} />
+                                                <Text className="text-white text-xs font-bold ml-1">To Cart</Text>
+                                            </AnimatedPressable>
+                                            <TouchableOpacity
+                                                onPress={() => handleRemoveFromWishlist(item.id)}
+                                                className="bg-gray-100 py-2 rounded-lg items-center flex-row justify-center"
+                                            >
+                                                <Heart size={14} color="#ef4444" fill="#ef4444" />
+                                                <Text className="text-gray-600 text-xs font-bold ml-1">Remove</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    }
+                                />
+                            )}
+                        />
                     )}
                 </ScrollView>
             )}

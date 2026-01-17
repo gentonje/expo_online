@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { Package, Trash2, Edit2, Plus } from 'lucide-react-native';
+import { useAuth } from '../contexts/AuthContext';
+import { confirmAction } from '../lib/alerts';
+import { Package, Trash2, Plus } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import ProductGrid from '../components/ProductGrid';
+import ProductCard from '../components/ProductCard';
 
 export default function MyProductsScreen() {
+    const { user } = useAuth();
     const [products, setProducts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -50,34 +55,36 @@ export default function MyProductsScreen() {
     };
 
     const handleDelete = async (id: string) => {
-        Alert.alert(
-            "Delete Product",
-            "Are you sure you want to delete this product?",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Delete",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            const { error } = await supabase.from('products').delete().eq('id', id);
-                            if (error) throw error;
-                            setProducts(prev => prev.filter(p => p.id !== id));
-                        } catch (error: any) {
-                            Alert.alert('Error', 'Failed to delete product');
-                        }
-                    }
+        console.log('Delete button clicked for product ID:', id);
+        confirmAction({
+            title: "Delete Product",
+            message: "Are you sure you want to delete this product?",
+            confirmText: "Delete",
+            style: "destructive",
+            onConfirm: async () => {
+                try {
+                    console.log('Attempting to delete product with ID:', id);
+                    const result = await supabase.from('products').delete().eq('id', id);
+                    console.log('Delete result:', result);
+
+                    if (result.error) throw result.error;
+
+                    setProducts(prev => prev.filter(p => p.id !== id));
+                    Alert.alert('Success', 'Product deleted successfully');
+                } catch (error: any) {
+                    console.error('Error deleting product:', error);
+                    Alert.alert('Error', error.message || 'Failed to delete product');
                 }
-            ]
-        );
+            }
+        });
     };
 
     return (
-        <View className="flex-1 bg-gray-50 p-4">
-            <View className="flex-row justify-between items-center mb-6">
+        <View style={{ flex: 1 }} className="bg-gray-50">
+            <View className="p-4 bg-white border-b border-gray-100 flex-row justify-between items-center pt-12">
                 <View>
                     <Text className="text-2xl font-bold text-gray-900">My Store</Text>
-                    <Text className="text-gray-500">Manage your listings</Text>
+                    <Text className="text-gray-500 text-xs">Manage your listings</Text>
                 </View>
                 <TouchableOpacity
                     onPress={() => navigation.navigate('AddProduct')}
@@ -89,11 +96,15 @@ export default function MyProductsScreen() {
             </View>
 
             {loading && !refreshing ? (
-                <ActivityIndicator size="large" color="#2563eb" />
+                <View className="flex-1 justify-center items-center">
+                    <ActivityIndicator size="large" color="#2563eb" />
+                </View>
             ) : (
                 <ScrollView
-                    className="flex-1"
+                    style={{ flex: 1 }}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                    contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
+                    showsVerticalScrollIndicator={true}
                 >
                     {products.length === 0 ? (
                         <View className="items-center justify-center mt-20">
@@ -107,39 +118,29 @@ export default function MyProductsScreen() {
                             </TouchableOpacity>
                         </View>
                     ) : (
-                        products.map((product) => (
-                            <View key={product.id} className="bg-white rounded-2xl border border-gray-100 mb-4 shadow-sm overflow-hidden">
-                                <View className="flex-row p-3">
-                                    <View className="w-24 h-24 bg-gray-100 rounded-xl overflow-hidden">
-                                        {product.product_images?.[0]?.storage_path ? (
-                                            <Image
-                                                source={{ uri: `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/images/${product.product_images[0].storage_path}` }}
-                                                className="w-full h-full"
-                                            />
-                                        ) : (
-                                            <Package size={32} color="#94a3b8" />
-                                        )}
-                                    </View>
-                                    <View className="flex-1 ml-3 justify-between py-1">
-                                        <View>
-                                            <Text className="text-lg font-bold text-gray-900" numberOfLines={1}>{product.title}</Text>
-                                            <Text className="text-gray-500 text-sm" numberOfLines={2}>{product.description}</Text>
-                                        </View>
-                                        <View className="flex-row justify-between items-center">
-                                            <Text className="text-orange-600 font-bold text-lg">${product.price}</Text>
-                                            <View className="flex-row gap-2">
-                                                <TouchableOpacity
-                                                    onPress={() => handleDelete(product.id)}
-                                                    className="p-2 bg-red-50 rounded-lg"
-                                                >
-                                                    <Trash2 size={18} color="#ef4444" />
-                                                </TouchableOpacity>
-                                            </View>
-                                        </View>
-                                    </View>
-                                </View>
-                            </View>
-                        ))
+                        <ProductGrid
+                            items={products}
+                            renderItem={(product) => (
+                                <ProductCard
+                                    product={product}
+                                    actions={
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                if (product.user_id === user?.id) {
+                                                    handleDelete(product.id);
+                                                } else {
+                                                    Alert.alert('Permission Denied', 'You can only delete your own products');
+                                                }
+                                            }}
+                                            className={`py-2 rounded-lg items-center flex-row justify-center ${product.user_id === user?.id ? 'bg-red-50' : 'bg-gray-50 opacity-50'}`}
+                                        >
+                                            <Trash2 size={16} color={product.user_id === user?.id ? "#ef4444" : "#94a3b8"} />
+                                            <Text className={`${product.user_id === user?.id ? 'text-red-600' : 'text-gray-400'} text-xs font-bold ml-1`}>Delete</Text>
+                                        </TouchableOpacity>
+                                    }
+                                />
+                            )}
+                        />
                     )}
                 </ScrollView>
             )}

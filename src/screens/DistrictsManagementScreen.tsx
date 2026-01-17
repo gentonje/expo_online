@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput, Modal } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { confirmAction } from '../lib/alerts';
 import { Plus, Trash2, Edit2, MapPin, Globe } from 'lucide-react-native';
 
 interface District {
@@ -16,6 +18,7 @@ interface Country {
 }
 
 export default function DistrictsManagementScreen() {
+    const { isAdmin } = useAuth();
     const [districts, setDistricts] = useState<District[]>([]);
     const [countries, setCountries] = useState<Country[]>([]);
     const [loading, setLoading] = useState(true);
@@ -59,18 +62,22 @@ export default function DistrictsManagementScreen() {
         }
 
         try {
+            let result;
             if (editingDistrict) {
-                const { error } = await supabase
+                console.log('Updating district:', editingDistrict.id, { name: newName, country_id: selectedCountryId });
+                result = await supabase
                     .from('districts')
                     .update({ name: newName, country_id: selectedCountryId })
                     .eq('id', editingDistrict.id);
-                if (error) throw error;
             } else {
-                const { error } = await supabase
+                console.log('Inserting district:', { name: newName, country_id: selectedCountryId });
+                result = await supabase
                     .from('districts')
                     .insert({ name: newName, country_id: selectedCountryId });
-                if (error) throw error;
             }
+
+            console.log('District operation result:', result);
+            if (result.error) throw result.error;
 
             setModalVisible(false);
             setEditingDistrict(null);
@@ -80,31 +87,32 @@ export default function DistrictsManagementScreen() {
             Alert.alert('Success', `District ${editingDistrict ? 'updated' : 'added'} successfully`);
         } catch (error: any) {
             console.error('Error saving district:', error);
-            Alert.alert('Error', 'Failed to save district');
+            Alert.alert('Error', error.message || 'Failed to save district');
         }
     };
 
     const handleDelete = async (id: number) => {
-        Alert.alert(
-            "Delete District",
-            "Are you sure you want to delete this district?",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Delete",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            const { error } = await supabase.from('districts').delete().eq('id', id);
-                            if (error) throw error;
-                            fetchData();
-                        } catch (error: any) {
-                            Alert.alert('Error', 'Failed to delete district');
-                        }
-                    }
+        console.log('Delete button clicked for district ID:', id);
+        confirmAction({
+            title: "Delete District",
+            message: "Are you sure you want to delete this district?",
+            confirmText: "Delete",
+            style: "destructive",
+            onConfirm: async () => {
+                try {
+                    console.log('Attempting to delete district with ID:', id);
+                    const result = await supabase.from('districts').delete().eq('id', id);
+                    console.log('Delete result:', result);
+
+                    if (result.error) throw result.error;
+                    fetchData();
+                    Alert.alert('Success', 'District deleted successfully');
+                } catch (error: any) {
+                    console.error('Error deleting district:', error);
+                    Alert.alert('Error', error.message || 'Failed to delete district');
                 }
-            ]
-        );
+            }
+        });
     };
 
     return (
@@ -153,10 +161,10 @@ export default function DistrictsManagementScreen() {
                                     <Edit2 size={18} color="#2563eb" />
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    onPress={() => handleDelete(district.id)}
-                                    className="p-2 bg-red-100 rounded-lg"
+                                    onPress={() => isAdmin ? handleDelete(district.id) : Alert.alert('Permission Denied', 'Only admins can delete districts')}
+                                    className={`p-2 rounded-lg ${isAdmin ? 'bg-red-100' : 'bg-gray-100 opacity-50'}`}
                                 >
-                                    <Trash2 size={18} color="#ef4444" />
+                                    <Trash2 size={18} color={isAdmin ? "#ef4444" : "#94a3b8"} />
                                 </TouchableOpacity>
                             </View>
                         </View>

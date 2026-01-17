@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Image } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { confirmAction } from '../lib/alerts';
 import { Search, Trash2, Package, Users } from 'lucide-react-native';
 
 interface UserStat {
@@ -80,32 +81,28 @@ export default function UserManagementScreen() {
     };
 
     const handleDeleteProduct = async (productId: string) => {
-        Alert.alert(
-            "Delete Product",
-            "Are you sure you want to delete this product?",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Delete",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            const { error } = await supabase
-                                .from('products')
-                                .delete()
-                                .eq('id', productId);
+        console.log('Admin delete button clicked for product ID:', productId);
+        confirmAction({
+            title: "Delete Product",
+            message: "Are you sure you want to delete this product?",
+            confirmText: "Delete",
+            style: "destructive",
+            onConfirm: async () => {
+                try {
+                    const { error } = await supabase
+                        .from('products')
+                        .delete()
+                        .eq('id', productId);
 
-                            if (error) throw error;
-                            setProducts(prev => prev.filter(p => p.id !== productId));
-                            Alert.alert('Success', 'Product deleted');
-                        } catch (error: any) {
-                            console.error('Error deleting product:', error);
-                            Alert.alert('Error', 'Failed to delete product');
-                        }
-                    }
+                    if (error) throw error;
+                    setProducts(prev => prev.filter(p => p.id !== productId));
+                    Alert.alert('Success', 'Product deleted');
+                } catch (error: any) {
+                    console.error('Error deleting product:', error);
+                    Alert.alert('Error', error.message || 'Failed to delete product');
                 }
-            ]
-        );
+            }
+        });
     };
 
     const filteredUsers = userStats.filter(user =>

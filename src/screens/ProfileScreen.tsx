@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { User, Mail, Phone, MapPin, Store, Save, LogOut } from 'lucide-react-native';
 
 export default function ProfileScreen() {
     const { user, signOut } = useAuth();
+    const navigation = useNavigation();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [formData, setFormData] = useState({
@@ -14,8 +16,6 @@ export default function ProfileScreen() {
         contact_email: '',
         phone_number: '',
         address: '',
-        shop_name: '',
-        shop_description: '',
     });
 
     useEffect(() => {
@@ -29,7 +29,7 @@ export default function ProfileScreen() {
             setLoading(true);
             const { data, error } = await supabase
                 .from('profiles')
-                .select('id, username, full_name, contact_email, phone_number, address, shop_name, shop_description')
+                .select('id, username, full_name, contact_email, phone_number, address')
                 .eq('id', user?.id)
                 .single();
 
@@ -41,8 +41,6 @@ export default function ProfileScreen() {
                     contact_email: data.contact_email || user?.email || '',
                     phone_number: data.phone_number || '',
                     address: data.address || '',
-                    shop_name: data.shop_name || '',
-                    shop_description: data.shop_description || '',
                 });
             }
         } catch (error: any) {
@@ -53,14 +51,17 @@ export default function ProfileScreen() {
     };
 
     const handleSave = async () => {
+        console.log('handleSave called');
         if (!formData.username || !formData.full_name) {
+            console.warn('Validation failed:', formData);
             Alert.alert('Validation Error', 'Username and Full Name are required');
             return;
         }
 
         try {
             setSaving(true);
-            const { error } = await supabase
+            console.log('Updating profile for user:', user?.id, 'with data:', formData);
+            const { error, status } = await supabase
                 .from('profiles')
                 .update({
                     username: formData.username,
@@ -68,16 +69,30 @@ export default function ProfileScreen() {
                     contact_email: formData.contact_email,
                     phone_number: formData.phone_number,
                     address: formData.address,
-                    shop_name: formData.shop_name,
-                    shop_description: formData.shop_description,
                 })
                 .eq('id', user?.id);
 
-            if (error) throw error;
-            Alert.alert('Success', 'Profile updated successfully');
+            console.log('Update result status:', status);
+            if (error) {
+                console.error('Supabase update error:', error);
+                throw error;
+            }
+
+            if (Platform.OS === 'web') {
+                window.alert('Profile updated successfully');
+            } else {
+                Alert.alert('Success', 'Profile updated successfully');
+            }
+            console.log('Profile update feedback shown');
+            navigation.goBack();
         } catch (error: any) {
             console.error('Error updating profile:', error);
-            Alert.alert('Error', 'Failed to update profile');
+            const msg = error.message || 'Failed to update profile';
+            if (Platform.OS === 'web') {
+                window.alert('Error: ' + msg);
+            } else {
+                Alert.alert('Error', msg);
+            }
         } finally {
             setSaving(false);
         }
@@ -181,34 +196,7 @@ export default function ProfileScreen() {
                     </View>
                 </View>
 
-                <View className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
-                    <Text className="text-lg font-bold text-gray-900 mb-4">Shop Details</Text>
-
-                    <View className="mb-4">
-                        <Text className="text-gray-600 mb-1 ml-1 text-sm font-medium">Shop Name</Text>
-                        <View className="flex-row items-center bg-gray-50 p-3 rounded-xl border border-gray-100">
-                            <Store size={18} color="#94a3b8" />
-                            <TextInput
-                                className="flex-1 ml-2 text-base text-gray-900"
-                                value={formData.shop_name}
-                                onChangeText={(t) => setFormData(p => ({ ...p, shop_name: t }))}
-                                placeholder="My Awesome Store"
-                            />
-                        </View>
-                    </View>
-
-                    <View className="mb-2">
-                        <Text className="text-gray-600 mb-1 ml-1 text-sm font-medium">Shop Description</Text>
-                        <TextInput
-                            className="bg-gray-50 p-4 rounded-xl border border-gray-100 text-base text-gray-900 h-24"
-                            value={formData.shop_description}
-                            onChangeText={(t) => setFormData(p => ({ ...p, shop_description: t }))}
-                            placeholder="Tell us what you sell..."
-                            multiline
-                            textAlignVertical="top"
-                        />
-                    </View>
-                </View>
+                {/* Shop Details removed due to schema mismatch */}
 
                 <TouchableOpacity
                     onPress={handleSave}

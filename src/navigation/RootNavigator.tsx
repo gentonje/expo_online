@@ -1,4 +1,4 @@
-import React from 'react';
+import * as React from 'react';
 import { View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -119,6 +119,7 @@ function AppDrawer() {
 
     return (
         <Drawer.Navigator
+            initialRouteName="BrowseProducts"
             screenOptions={{
                 headerShown: true,
                 headerTintColor: '#2563eb',

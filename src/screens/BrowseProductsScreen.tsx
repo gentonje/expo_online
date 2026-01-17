@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import ProductGrid from '../components/ProductGrid';
+import ProductCard from '../components/ProductCard';
 
 type RootStackParamList = {
     Dashboard: undefined;
@@ -38,33 +40,6 @@ export default function BrowseProductsScreen() {
         }
     }
 
-    const renderProduct = ({ item }: { item: any }) => {
-        const imageUrl = item.product_images?.[0]?.storage_path
-            ? `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/images/${item.product_images[0].storage_path}`
-            : 'https://via.placeholder.com/150';
-
-        return (
-            <TouchableOpacity
-                className="flex-1 m-2 bg-white rounded-xl shadow-sm overflow-hidden"
-                onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
-            >
-                <Image
-                    source={{ uri: imageUrl }}
-                    className="w-full h-40 bg-gray-200"
-                    resizeMode="cover"
-                />
-                <View className="p-3">
-                    <Text className="font-semibold text-gray-900 mb-1" numberOfLines={1}>
-                        {item.title}
-                    </Text>
-                    <Text className="text-blue-600 font-bold">
-                        {item.currency} {item.price}
-                    </Text>
-                </View>
-            </TouchableOpacity>
-        );
-    };
-
     if (loading) {
         return (
             <View className="flex-1 justify-center items-center">
@@ -74,16 +49,17 @@ export default function BrowseProductsScreen() {
     }
 
     return (
-        <View className="flex-1 bg-gray-50">
-            <FlatList
-                data={products}
-                renderItem={renderProduct}
-                keyExtractor={(item) => item.id}
-                numColumns={2}
-                contentContainerStyle={{ padding: 8, paddingBottom: 100 }}
-                columnWrapperStyle={{ justifyContent: 'space-between' }}
-            />
-
+        <View style={{ flex: 1 }} className="bg-gray-50">
+            <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
+                showsVerticalScrollIndicator={true}
+            >
+                <ProductGrid
+                    items={products}
+                    renderItem={(product) => <ProductCard product={product} />}
+                />
+            </ScrollView>
         </View>
     );
 }

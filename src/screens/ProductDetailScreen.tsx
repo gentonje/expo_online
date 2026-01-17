@@ -1,20 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions, Alert } from 'react-native';
+import * as React from 'react';
+import { useState, useEffect } from 'react';
+import { View, Text, Image, ScrollView, TouchableOpacity, ActivityIndicator, Alert, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { ArrowLeft, ShoppingCart, Heart } from 'lucide-react-native';
 import { useShopping } from '../hooks/useShopping';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, interpolate } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { getImageUrl } from '../lib/image-utils';
+import ProductCard from '../components/ProductCard';
 
 const AnimatedPressable = Animated.createAnimatedComponent(TouchableOpacity);
-
-
-
-const { width } = Dimensions.get('window');
 
 export default function ProductDetailScreen() {
     const route = useRoute();
     const navigation = useNavigation<any>();
+    const insets = useSafeAreaInsets();
+    const { width, height: windowHeight } = useWindowDimensions();
+    const GALLERY_HEIGHT = Math.min(width, windowHeight * 0.5);
 
     const { productId } = route.params as { productId: string };
 
@@ -24,6 +27,18 @@ export default function ProductDetailScreen() {
     const [similarProducts, setSimilarProducts] = useState<any[]>([]);
     const [activeImageIndex, setActiveImageIndex] = useState(0);
 
+    const { addToCart, toggleWishlist } = useShopping();
+
+    const cartScale = useSharedValue(1);
+    const wishlistScale = useSharedValue(1);
+
+    const cartAnimatedStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: cartScale.value }]
+    }));
+
+    const wishlistAnimatedStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: wishlistScale.value }]
+    }));
 
     useEffect(() => {
         fetchProductDetails();
@@ -90,20 +105,6 @@ export default function ProductDetailScreen() {
         }
     }
 
-
-    const { addToCart, toggleWishlist } = useShopping();
-
-    const cartScale = useSharedValue(1);
-    const wishlistScale = useSharedValue(1);
-
-    const cartAnimatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: cartScale.value }]
-    }));
-
-    const wishlistAnimatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: wishlistScale.value }]
-    }));
-
     const handleAddToCart = async () => {
         cartScale.value = withSpring(0.9, { damping: 10, stiffness: 100 }, () => {
             cartScale.value = withSpring(1);
@@ -123,10 +124,6 @@ export default function ProductDetailScreen() {
         }
     };
 
-
-
-
-
     if (loading) {
         return (
             <View className="flex-1 justify-center items-center bg-white">
@@ -137,16 +134,23 @@ export default function ProductDetailScreen() {
 
     if (!product) return null;
 
-    const images = product.product_images?.map((img: any) =>
-        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/images/${img.storage_path}`
-    ) || ['https://via.placeholder.com/400'];
+    let images = product.product_images?.map((img: any) => getImageUrl(img.storage_path)) || [];
+
+    if (images.length === 0 && product.storage_path) {
+        images = [getImageUrl(product.storage_path)];
+    }
+
+    if (images.length === 0) {
+        images = [getImageUrl(null)];
+    }
 
     return (
-        <View className="flex-1 bg-white">
-
-
+        <View style={{ flex: 1, backgroundColor: 'white' }}>
             {/* Header */}
-            <View className="absolute top-0 left-0 right-0 z-10 flex-row justify-between items-center p-4 pt-12">
+            <View
+                style={{ paddingTop: Math.max(insets.top, 20) }}
+                className="absolute top-0 left-0 right-0 z-10 flex-row justify-between items-center p-4"
+            >
                 <TouchableOpacity
                     onPress={() => navigation.goBack()}
                     className="w-10 h-10 bg-white/80 rounded-full justify-center items-center shadow-sm"
@@ -160,17 +164,19 @@ export default function ProductDetailScreen() {
                 >
                     <Heart color={isWishlisted ? "#FFD700" : "#000"} fill={isWishlisted ? "#FFD700" : "none"} size={24} />
                 </AnimatedPressable>
-
-
             </View>
 
             <ScrollView
-                className="flex-1"
-                contentContainerStyle={{ paddingBottom: 120 }}
-                showsVerticalScrollIndicator={false}
+                style={{ flex: 1 }}
+                contentContainerStyle={{
+                    flexGrow: 1,
+                    paddingBottom: insets.bottom + 120
+                }}
+                showsVerticalScrollIndicator={true}
+                keyboardShouldPersistTaps="handled"
             >
                 {/* Image Gallery */}
-                <View className="h-96 bg-gray-100">
+                <View style={{ height: GALLERY_HEIGHT }} className="bg-gray-50">
                     <ScrollView
                         horizontal
                         pagingEnabled
@@ -182,10 +188,10 @@ export default function ProductDetailScreen() {
                     >
                         {images.map((img: string, index: number) => (
                             <Image
-                                key={index}
+                                key={`gallery-image-${index}`}
                                 source={{ uri: img }}
-                                style={{ width, height: 384 }}
-                                resizeMode="cover"
+                                style={{ width, height: GALLERY_HEIGHT }}
+                                resizeMode="contain"
                             />
                         ))}
                     </ScrollView>
@@ -194,7 +200,7 @@ export default function ProductDetailScreen() {
                     <View className="absolute bottom-4 left-0 right-0 flex-row justify-center space-x-2">
                         {images.map((_: any, index: number) => (
                             <View
-                                key={index}
+                                key={`gallery-dot-${index}`}
                                 className={`w-2 h-2 rounded-full ${index === activeImageIndex ? 'bg-blue-600' : 'bg-gray-300'}`}
                             />
                         ))}
@@ -204,7 +210,6 @@ export default function ProductDetailScreen() {
                 {/* Product Info */}
                 <View className="p-5">
                     <View className="flex-row justify-between items-start mb-4">
-
                         <View className="flex-1 mr-4">
                             <Text className="text-sm text-blue-600 font-semibold mb-1 uppercase tracking-wider">
                                 {product.category || 'General'}
@@ -220,7 +225,6 @@ export default function ProductDetailScreen() {
 
                     {/* Seller Info */}
                     <View className="flex-row items-center p-3 border-y border-gray-100 mb-4 space-x-3">
-
                         <View className="w-10 h-10 bg-gray-200 rounded-full justify-center items-center">
                             <Text className="text-lg font-bold text-gray-500">
                                 {product.profiles?.username?.[0]?.toUpperCase() || 'S'}
@@ -252,55 +256,37 @@ export default function ProductDetailScreen() {
                         </View>
                     </View>
 
-                    {/* Similar Products */}
+                    {/* Similar Products Carousel */}
                     {similarProducts.length > 0 && (
                         <View className="mt-8 mb-4">
-                            <Text className="text-lg font-bold text-gray-900 mb-4 px-1">Similar Products</Text>
+                            <Text className="text-xl font-bold text-gray-900 mb-4 px-1">Similar Products</Text>
                             <ScrollView
                                 horizontal
                                 showsHorizontalScrollIndicator={false}
                                 className="flex-row"
+                                contentContainerStyle={{ paddingRight: 20 }}
                             >
-                                {similarProducts.map((p) => {
-                                    const imageUrl = p.product_images?.[0]?.storage_path
-                                        ? `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/images/${p.product_images[0].storage_path}`
-                                        : 'https://via.placeholder.com/150';
-
-                                    return (
-                                        <TouchableOpacity
-                                            key={p.id}
+                                {similarProducts.map((p) => (
+                                    <View key={p.id} className="w-48 mr-4">
+                                        <ProductCard
+                                            product={p}
                                             onPress={() => {
                                                 navigation.push('ProductDetail', { productId: p.id });
                                             }}
-
-                                            className="w-36 mr-4 bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm"
-                                        >
-                                            <Image
-                                                source={{ uri: imageUrl }}
-                                                className="w-full h-32 bg-gray-100"
-                                            />
-                                            <View className="p-2 bg-white">
-                                                <Text className="text-sm font-semibold text-gray-900" numberOfLines={1}>
-                                                    {p.title || 'Untitled Product'}
-                                                </Text>
-                                                <Text className="text-xs text-blue-600 font-bold mt-1">
-                                                    {p.currency || '$'} {p.price || '0.00'}
-                                                </Text>
-                                            </View>
-
-                                        </TouchableOpacity>
-                                    );
-                                })}
+                                        />
+                                    </View>
+                                ))}
                             </ScrollView>
                         </View>
                     )}
                 </View>
             </ScrollView>
 
-
             {/* Bottom Action Bar */}
-            <View className="p-4 bg-white border-t border-gray-100 absolute bottom-0 left-0 right-0">
-
+            <View
+                style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+                className="p-4 bg-white border-t border-gray-100 absolute bottom-0 left-0 right-0 z-20"
+            >
                 <AnimatedPressable
                     style={[{ width: '100%' }, cartAnimatedStyle]}
                     className="bg-blue-600 py-4 rounded-xl flex-row justify-center items-center space-x-2 shadow-lg shadow-blue-200"
@@ -309,7 +295,6 @@ export default function ProductDetailScreen() {
                     <ShoppingCart color="white" size={20} />
                     <Text className="text-white font-bold text-lg">Add to Cart</Text>
                 </AnimatedPressable>
-
             </View>
         </View>
     );

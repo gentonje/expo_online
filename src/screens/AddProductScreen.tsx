@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput, Image, KeyboardAvoidingView, Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { Camera, Package, MapPin, Globe, Loader2, Tag } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -130,123 +130,131 @@ export default function AddProductScreen() {
     };
 
     return (
-        <ScrollView
-            className="flex-1 p-4"
-            contentContainerStyle={{ paddingBottom: 100 }}
+        <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1 }}
+            className="bg-gray-50"
         >
-
-
-            <Text className="text-2xl font-bold text-gray-900 mb-6">List Item for Sale</Text>
-
-            {/* Image Picker */}
-            <TouchableOpacity
-                onPress={pickImage}
-                className="w-full h-48 bg-white rounded-2xl border-2 border-dashed border-gray-200 justify-center items-center mb-6 overflow-hidden"
+            <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={{ flexGrow: 1, padding: 16, paddingBottom: 120 }}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={true}
             >
-                {mainImage ? (
-                    <Image source={{ uri: mainImage }} className="w-full h-full" />
-                ) : (
-                    <View className="items-center">
-                        <Camera size={40} color="#94a3b8" />
-                        <Text className="text-gray-400 mt-2 font-medium">Add Product Photo</Text>
-                    </View>
-                )}
-            </TouchableOpacity>
 
-            <View className="space-y-4 mb-10">
-                <View>
-                    <Text className="text-gray-700 font-bold mb-2 ml-1">Title</Text>
-                    <TextInput
-                        className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm text-base"
-                        placeholder="What are you selling?"
-                        value={formData.title}
-                        onChangeText={(text) => setFormData(p => ({ ...p, title: text }))}
-                    />
-                </View>
 
-                <View className="flex-row gap-4">
-                    <View className="flex-1">
-                        <Text className="text-gray-700 font-bold mb-2 ml-1">Price ($)</Text>
-                        <TextInput
-                            className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm text-base"
-                            placeholder="0.00"
-                            keyboardType="numeric"
-                            value={formData.price}
-                            onChangeText={(text) => setFormData(p => ({ ...p, price: text }))}
-                        />
-                    </View>
-                    <View className="flex-1">
-                        <Text className="text-gray-700 font-bold mb-2 ml-1">Quantity</Text>
-                        <TextInput
-                            className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm text-base"
-                            placeholder="1"
-                            keyboardType="numeric"
-                            value={formData.available_quantity}
-                            onChangeText={(text) => setFormData(p => ({ ...p, available_quantity: text }))}
-                        />
-                    </View>
-                </View>
+                <Text className="text-2xl font-bold text-gray-900 mb-6">List Item for Sale</Text>
 
-                <View>
-                    <Text className="text-gray-700 font-bold mb-2 ml-1">Description</Text>
-                    <TextInput
-                        className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm text-base h-24 text-top"
-                        placeholder="Tell buyers more about it..."
-                        multiline
-                        value={formData.description}
-                        onChangeText={(text) => setFormData(p => ({ ...p, description: text }))}
-                    />
-                </View>
-
-                {/* Simplified Location Selectors */}
-                <View>
-                    <Text className="text-gray-700 font-bold mb-2 ml-1">Country</Text>
-                    <View className="flex-row flex-wrap gap-2">
-                        {countries.map(c => (
-                            <TouchableOpacity
-                                key={c.id}
-                                onPress={() => {
-                                    setFormData(p => ({ ...p, country_id: c.id.toString() }));
-                                    fetchDistricts(c.id);
-                                }}
-                                className={`px-4 py-2 rounded-full border ${formData.country_id === c.id.toString() ? 'bg-orange-500 border-orange-500' : 'bg-white border-gray-200'}`}
-                            >
-                                <Text className={`font-bold ${formData.country_id === c.id.toString() ? 'text-white' : 'text-gray-600'}`}>{c.name}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </View>
-
-                <View>
-                    <Text className="text-gray-700 font-bold mb-2 ml-1">Location / District</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
-                        {districts.map(d => (
-                            <TouchableOpacity
-                                key={d.id}
-                                onPress={() => setFormData(p => ({ ...p, county: d.name }))}
-                                className={`px-4 py-2 rounded-full border mr-2 ${formData.county === d.name ? 'bg-orange-500 border-orange-500' : 'bg-white border-gray-200'}`}
-                            >
-                                <Text className={`font-bold ${formData.county === d.name ? 'text-white' : 'text-gray-600'}`}>{d.name}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
-
+                {/* Image Picker */}
                 <TouchableOpacity
-                    onPress={handleSubmit}
-                    disabled={loading}
-                    className="bg-orange-500 p-4 rounded-2xl items-center mt-6 flex-row justify-center"
+                    onPress={pickImage}
+                    className="w-full aspect-square bg-white rounded-2xl border-2 border-dashed border-gray-200 justify-center items-center mb-6 overflow-hidden"
                 >
-                    {loading ? (
-                        <ActivityIndicator color="white" />
+                    {mainImage ? (
+                        <Image source={{ uri: mainImage }} className="w-full h-full" />
                     ) : (
-                        <>
-                            <Tag color="white" size={20} />
-                            <Text className="text-white font-bold text-lg ml-2">List Product</Text>
-                        </>
+                        <View className="items-center">
+                            <Camera size={40} color="#94a3b8" />
+                            <Text className="text-gray-400 mt-2 font-medium">Add Product Photo</Text>
+                        </View>
                     )}
                 </TouchableOpacity>
-            </View>
-        </ScrollView>
+
+                <View className="space-y-4 mb-10">
+                    <View>
+                        <Text className="text-gray-700 font-bold mb-2 ml-1">Title</Text>
+                        <TextInput
+                            className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm text-base"
+                            placeholder="What are you selling?"
+                            value={formData.title}
+                            onChangeText={(text) => setFormData(p => ({ ...p, title: text }))}
+                        />
+                    </View>
+
+                    <View className="flex-row gap-4">
+                        <View className="flex-1">
+                            <Text className="text-gray-700 font-bold mb-2 ml-1">Price ($)</Text>
+                            <TextInput
+                                className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm text-base"
+                                placeholder="0.00"
+                                keyboardType="numeric"
+                                value={formData.price}
+                                onChangeText={(text) => setFormData(p => ({ ...p, price: text }))}
+                            />
+                        </View>
+                        <View className="flex-1">
+                            <Text className="text-gray-700 font-bold mb-2 ml-1">Quantity</Text>
+                            <TextInput
+                                className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm text-base"
+                                placeholder="1"
+                                keyboardType="numeric"
+                                value={formData.available_quantity}
+                                onChangeText={(text) => setFormData(p => ({ ...p, available_quantity: text }))}
+                            />
+                        </View>
+                    </View>
+
+                    <View>
+                        <Text className="text-gray-700 font-bold mb-2 ml-1">Description</Text>
+                        <TextInput
+                            className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm text-base h-24 text-top"
+                            placeholder="Tell buyers more about it..."
+                            multiline
+                            value={formData.description}
+                            onChangeText={(text) => setFormData(p => ({ ...p, description: text }))}
+                        />
+                    </View>
+
+                    {/* Simplified Location Selectors */}
+                    <View>
+                        <Text className="text-gray-700 font-bold mb-2 ml-1">Country</Text>
+                        <View className="flex-row flex-wrap gap-2">
+                            {countries.map(c => (
+                                <TouchableOpacity
+                                    key={c.id}
+                                    onPress={() => {
+                                        setFormData(p => ({ ...p, country_id: c.id.toString() }));
+                                        fetchDistricts(c.id);
+                                    }}
+                                    className={`px-4 py-2 rounded-full border ${formData.country_id === c.id.toString() ? 'bg-orange-500 border-orange-500' : 'bg-white border-gray-200'}`}
+                                >
+                                    <Text className={`font-bold ${formData.country_id === c.id.toString() ? 'text-white' : 'text-gray-600'}`}>{c.name}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+
+                    <View>
+                        <Text className="text-gray-700 font-bold mb-2 ml-1">Location / District</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+                            {districts.map(d => (
+                                <TouchableOpacity
+                                    key={d.id}
+                                    onPress={() => setFormData(p => ({ ...p, county: d.name }))}
+                                    className={`px-4 py-2 rounded-full border mr-2 ${formData.county === d.name ? 'bg-orange-500 border-orange-500' : 'bg-white border-gray-200'}`}
+                                >
+                                    <Text className={`font-bold ${formData.county === d.name ? 'text-white' : 'text-gray-600'}`}>{d.name}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+
+                    <TouchableOpacity
+                        onPress={handleSubmit}
+                        disabled={loading}
+                        className="bg-orange-500 p-4 rounded-2xl items-center mt-6 flex-row justify-center"
+                    >
+                        {loading ? (
+                            <ActivityIndicator color="white" />
+                        ) : (
+                            <>
+                                <Tag color="white" size={20} />
+                                <Text className="text-white font-bold text-lg ml-2">List Product</Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
+                </View>
+            </ScrollView>
+        </KeyboardAvoidingView>
     );
 }
