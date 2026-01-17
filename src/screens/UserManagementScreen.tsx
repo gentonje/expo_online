@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Image } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { confirmAction } from '../lib/alerts';
-import { Search, Trash2, Package, Users } from 'lucide-react-native';
+import { Search, Trash2, Package, Users, Edit } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
 
 interface UserStat {
     id: string;
@@ -13,6 +14,7 @@ interface UserStat {
 }
 
 export default function UserManagementScreen() {
+    const navigation = useNavigation<any>();
     const [userStats, setUserStats] = useState<UserStat[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -182,12 +184,20 @@ export default function UserManagementScreen() {
                                         <Text className="text-gray-500 text-sm">By {product.profiles?.username || 'Unknown'}</Text>
                                         <Text className="text-blue-600 font-bold">${product.price}</Text>
                                     </View>
-                                    <TouchableOpacity
-                                        onPress={() => handleDeleteProduct(product.id)}
-                                        className="p-2"
-                                    >
-                                        <Trash2 color="#ef4444" size={20} />
-                                    </TouchableOpacity>
+                                    <View className="flex-row gap-2">
+                                        <TouchableOpacity
+                                            onPress={() => navigation.navigate('EditProduct', { productId: product.id })}
+                                            className="p-2"
+                                        >
+                                            <Edit color="#3b82f6" size={20} />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            onPress={() => handleDeleteProduct(product.id)}
+                                            className="p-2"
+                                        >
+                                            <Trash2 color="#ef4444" size={20} />
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
                             </View>
                         ))

@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Ref
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { confirmAction } from '../lib/alerts';
-import { Package, Trash2, Plus } from 'lucide-react-native';
+import { Package, Trash2, Plus, Edit } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import ProductGrid from '../components/ProductGrid';
 import ProductCard from '../components/ProductCard';
@@ -124,19 +124,34 @@ export default function MyProductsScreen() {
                                 <ProductCard
                                     product={product}
                                     actions={
-                                        <TouchableOpacity
-                                            onPress={() => {
-                                                if (product.user_id === user?.id) {
-                                                    handleDelete(product.id);
-                                                } else {
-                                                    Alert.alert('Permission Denied', 'You can only delete your own products');
-                                                }
-                                            }}
-                                            className={`py-2 rounded-lg items-center flex-row justify-center ${product.user_id === user?.id ? 'bg-red-50' : 'bg-gray-50 opacity-50'}`}
-                                        >
-                                            <Trash2 size={16} color={product.user_id === user?.id ? "#ef4444" : "#94a3b8"} />
-                                            <Text className={`${product.user_id === user?.id ? 'text-red-600' : 'text-gray-400'} text-xs font-bold ml-1`}>Delete</Text>
-                                        </TouchableOpacity>
+                                        <View className="flex-row gap-2">
+                                            <TouchableOpacity
+                                                onPress={() => {
+                                                    if (product.user_id === user?.id) {
+                                                        navigation.navigate('EditProduct', { productId: product.id });
+                                                    } else {
+                                                        Alert.alert('Permission Denied', 'You can only edit your own products');
+                                                    }
+                                                }}
+                                                className={`flex-1 py-2 rounded-lg items-center flex-row justify-center ${product.user_id === user?.id ? 'bg-blue-50' : 'bg-gray-50 opacity-50'}`}
+                                            >
+                                                <Edit size={16} color={product.user_id === user?.id ? "#3b82f6" : "#94a3b8"} />
+                                                <Text className={`${product.user_id === user?.id ? 'text-blue-600' : 'text-gray-400'} text-xs font-bold ml-1`}>Edit</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                onPress={() => {
+                                                    if (product.user_id === user?.id) {
+                                                        handleDelete(product.id);
+                                                    } else {
+                                                        Alert.alert('Permission Denied', 'You can only delete your own products');
+                                                    }
+                                                }}
+                                                className={`flex-1 py-2 rounded-lg items-center flex-row justify-center ${product.user_id === user?.id ? 'bg-red-50' : 'bg-gray-50 opacity-50'}`}
+                                            >
+                                                <Trash2 size={16} color={product.user_id === user?.id ? "#ef4444" : "#94a3b8"} />
+                                                <Text className={`${product.user_id === user?.id ? 'text-red-600' : 'text-gray-400'} text-xs font-bold ml-1`}>Delete</Text>
+                                            </TouchableOpacity>
+                                        </View>
                                     }
                                 />
                             )}

@@ -25,7 +25,7 @@ export default function ProductDetailScreen() {
     const [loading, setLoading] = useState(true);
     const [isWishlisted, setIsWishlisted] = useState(false);
     const [similarProducts, setSimilarProducts] = useState<any[]>([]);
-    const [activeImageIndex, setActiveImageIndex] = useState(0);
+    const [selectedCarouselImage, setSelectedCarouselImage] = useState<string | null>(null);
 
     const { addToCart, toggleWishlist } = useShopping();
 
@@ -134,15 +134,22 @@ export default function ProductDetailScreen() {
 
     if (!product) return null;
 
-    let images = product.product_images?.map((img: any) => getImageUrl(img.storage_path)) || [];
+    // Get all product images sorted by display_order
+    let allImages = product.product_images?.sort((a: any, b: any) => 
+        (a.display_order || 0) - (b.display_order || 0)
+    ) || [];
 
-    if (images.length === 0 && product.storage_path) {
-        images = [getImageUrl(product.storage_path)];
+    // Fallback to storage_path if no product_images
+    if (allImages.length === 0 && product.storage_path) {
+        allImages = [{ storage_path: product.storage_path, is_main: true, display_order: 0 }];
     }
 
-    if (images.length === 0) {
-        images = [getImageUrl(null)];
-    }
+    // Separate main image and additional images
+    const mainImage = allImages.find((img: any) => img.is_main) || allImages[0];
+    const additionalImages = allImages.filter((img: any) => img !== mainImage);
+
+    const mainImageUrl = mainImage ? getImageUrl(mainImage.storage_path) : getImageUrl(null);
+    const additionalImageUrls = additionalImages.map((img: any) => getImageUrl(img.storage_path));
 
     return (
         <View style={{ flex: 1, backgroundColor: 'white' }}>
@@ -175,37 +182,83 @@ export default function ProductDetailScreen() {
                 showsVerticalScrollIndicator={true}
                 keyboardShouldPersistTaps="handled"
             >
-                {/* Image Gallery */}
+                {/* Main Image */}
                 <View style={{ height: GALLERY_HEIGHT }} className="bg-gray-50">
-                    <ScrollView
-                        horizontal
-                        pagingEnabled
-                        showsHorizontalScrollIndicator={false}
-                        onMomentumScrollEnd={(e) => {
-                            const newIndex = Math.round(e.nativeEvent.contentOffset.x / width);
-                            setActiveImageIndex(newIndex);
-                        }}
-                    >
-                        {images.map((img: string, index: number) => (
-                            <Image
-                                key={`gallery-image-${index}`}
-                                source={{ uri: img }}
-                                style={{ width, height: GALLERY_HEIGHT }}
-                                resizeMode="contain"
-                            />
-                        ))}
-                    </ScrollView>
-
-                    {/* Pagination Dots */}
-                    <View className="absolute bottom-4 left-0 right-0 flex-row justify-center space-x-2">
-                        {images.map((_: any, index: number) => (
-                            <View
-                                key={`gallery-dot-${index}`}
-                                className={`w-2 h-2 rounded-full ${index === activeImageIndex ? 'bg-blue-600' : 'bg-gray-300'}`}
-                            />
-                        ))}
-                    </View>
+                    <Image
+                        source={{ uri: selectedCarouselImage || mainImageUrl }}
+                        style={{ width: '100%', height: GALLERY_HEIGHT }}
+                        resizeMode="contain"
+                    />
                 </View>
+
+                {/* Additional Images Carousel */}
+                {additionalImageUrls.length > 0 && (
+                    <View className="bg-white border-b border-gray-100 pb-4">
+                        <Text className="text-sm font-semibold text-gray-700 px-5 py-3 uppercase tracking-wide">
+                            More Photos ({additionalImageUrls.length})
+                        </Text>
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 8 }}
+                            className="flex-row"
+                        >
+                            {/* Show main image as first option in carousel */}
+                            <TouchableOpacity
+                                onPress={() => setSelectedCarouselImage(null)}
+                                className="mr-3"
+                                activeOpacity={0.8}
+                            >
+                                <View
+                                    style={{
+                                        width: 100,
+                                        height: 100,
+                                        borderRadius: 12,
+                                        borderWidth: selectedCarouselImage === null ? 3 : 1,
+                                        borderColor: selectedCarouselImage === null ? '#f97316' : '#e5e7eb',
+                                        overflow: 'hidden'
+                                    }}
+                                >
+                                    <Image
+                                        source={{ uri: mainImageUrl }}
+                                        style={{ width: '100%', height: '100%' }}
+                                        resizeMode="cover"
+                                    />
+                                    {selectedCarouselImage === null && (
+                                        <View style={{ position: 'absolute', top: 4, left: 4, backgroundColor: '#f97316', borderRadius: 4, paddingHorizontal: 4, paddingVertical: 2 }}>
+                                            <Text className="text-white font-bold text-xs">Main</Text>
+                                        </View>
+                                    )}
+                                </View>
+                            </TouchableOpacity>
+                            {additionalImageUrls.map((img: string, index: number) => (
+                                <TouchableOpacity
+                                    key={`additional-image-${index}`}
+                                    onPress={() => setSelectedCarouselImage(img)}
+                                    className="mr-3"
+                                    activeOpacity={0.8}
+                                >
+                                    <View
+                                        style={{
+                                            width: 100,
+                                            height: 100,
+                                            borderRadius: 12,
+                                            borderWidth: selectedCarouselImage === img ? 3 : 1,
+                                            borderColor: selectedCarouselImage === img ? '#f97316' : '#e5e7eb',
+                                            overflow: 'hidden'
+                                        }}
+                                    >
+                                        <Image
+                                            source={{ uri: img }}
+                                            style={{ width: '100%', height: '100%' }}
+                                            resizeMode="cover"
+                                        />
+                                    </View>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                )}
 
                 {/* Product Info */}
                 <View className="p-5">

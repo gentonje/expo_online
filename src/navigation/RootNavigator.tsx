@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createDrawerNavigator } from '@react-navigation/drawer';
+import SplashScreen from '../components/SplashScreen';
 import {
     Home,
     ShoppingCart,
@@ -28,6 +29,7 @@ import BrowseProductsScreen from '../screens/BrowseProductsScreen';
 import ProductDetailScreen from '../screens/ProductDetailScreen';
 import MyProductsScreen from '../screens/MyProductsScreen';
 import AddProductScreen from '../screens/AddProductScreen';
+import EditProductScreen from '../screens/EditProductScreen';
 import AdminPanelScreen from '../screens/AdminPanelScreen';
 import UserManagementScreen from '../screens/UserManagementScreen';
 import AccountManagementScreen from '../screens/AccountManagementScreen';
@@ -245,11 +247,7 @@ export default function RootNavigator() {
     const { session, isLoading } = useAuth();
 
     if (isLoading) {
-        return (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" color="#2563eb" />
-            </View>
-        );
+        return <SplashScreen />;
     }
 
     return (
@@ -271,6 +269,11 @@ export default function RootNavigator() {
                             name="AddProduct"
                             component={AddProductScreen}
                             options={{ title: 'List New Product' }}
+                        />
+                        <Stack.Screen
+                            name="EditProduct"
+                            component={EditProductScreen}
+                            options={{ headerShown: false }}
                         />
                         <Stack.Screen
                             name="Cart"
