@@ -1,23 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
+import { View, ScrollView, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
 import ProductGrid from '../components/ProductGrid';
 import ProductCard from '../components/ProductCard';
-
-type RootStackParamList = {
-    Dashboard: undefined;
-    BrowseProducts: { category?: string } | undefined;
-    ProductDetail: { productId: string };
-};
-
-type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 export default function BrowseProductsScreen() {
     const [products, setProducts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const navigation = useNavigation<NavigationProp>();
 
     useEffect(() => {
         fetchProducts();

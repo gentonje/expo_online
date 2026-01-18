@@ -3,9 +3,8 @@ import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import Animated, {
     FadeInUp,
     FadeOutUp,
-    Layout,
-    SlideInUp,
-    SlideOutUp
+    Layout
+
 } from 'react-native-reanimated';
 import { CheckCircle2, AlertCircle, Info } from 'lucide-react-native';
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ShoppingBag, Star, TrendingUp, Heart, Zap } from 'lucide-react-native';
+import { Zap, Heart } from 'lucide-react-native';
 
 export default function DashboardScreen() {
     const navigation = useNavigation<any>();

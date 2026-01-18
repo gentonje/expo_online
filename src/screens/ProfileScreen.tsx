@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator,
 import { supabase } from '../lib/supabase';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
-import { User, Mail, Phone, MapPin, Store, Save, LogOut } from 'lucide-react-native';
+import { User, Mail, Phone, MapPin, Save, LogOut } from 'lucide-react-native';
 
 export default function ProfileScreen() {
     const { user, signOut } = useAuth();
@@ -19,36 +19,36 @@ export default function ProfileScreen() {
     });
 
     useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                setLoading(true);
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('id, username, full_name, contact_email, phone_number, address')
+                    .eq('id', user?.id)
+                    .single();
+
+                if (error) throw error;
+                if (data) {
+                    setFormData({
+                        username: data.username || '',
+                        full_name: data.full_name || '',
+                        contact_email: data.contact_email || user?.email || '',
+                        phone_number: data.phone_number || '',
+                        address: data.address || '',
+                    });
+                }
+            } catch (error: any) {
+                console.error('Error fetching profile:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
         if (user) {
             fetchProfile();
         }
     }, [user]);
-
-    const fetchProfile = async () => {
-        try {
-            setLoading(true);
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('id, username, full_name, contact_email, phone_number, address')
-                .eq('id', user?.id)
-                .single();
-
-            if (error) throw error;
-            if (data) {
-                setFormData({
-                    username: data.username || '',
-                    full_name: data.full_name || '',
-                    contact_email: data.contact_email || user?.email || '',
-                    phone_number: data.phone_number || '',
-                    address: data.address || '',
-                });
-            }
-        } catch (error: any) {
-            console.error('Error fetching profile:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleSave = async () => {
         console.log('handleSave called');

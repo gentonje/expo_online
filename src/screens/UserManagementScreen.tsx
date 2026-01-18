@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Image } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { confirmAction } from '../lib/alerts';
-import { Search, Trash2, Package, Users, Edit } from 'lucide-react-native';
+import { Search, Trash2, Package, Edit } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 
 interface UserStat {
@@ -40,7 +40,7 @@ export default function UserManagementScreen() {
             if (profilesError) throw profilesError;
 
             const stats = await Promise.all(profiles.map(async (profile: any) => {
-                const { count, error: countError } = await supabase
+                const { count } = await supabase
                     .from('products')
                     .select('*', { count: 'exact', head: true })
                     .eq('user_id', profile.id);

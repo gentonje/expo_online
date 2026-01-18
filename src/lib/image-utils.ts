@@ -1,4 +1,5 @@
-import { supabase } from './supabase';
+// supabase import removed as it was unused
+
 
 export const getImageUrl = (path: string | null | undefined) => {
     if (!path) return 'https://via.placeholder.com/400';

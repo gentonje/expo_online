@@ -28,7 +28,7 @@ export default function CheckoutScreen() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            const { data, error } = await supabase
+            const { data } = await supabase
                 .from('profiles')
                 .select('full_name, address, phone_number')
                 .eq('id', user.id)

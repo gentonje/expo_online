@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -22,42 +22,50 @@ export default function WishlistScreen() {
 
     useFocusEffect(
         useCallback(() => {
+            const fetchWishlist = async () => {
+                try {
+                    // Only start loading indication if we don't have items yet to prevent flickering
+                    // but we might want to check for stale data if needed.
+                    // For now, let's just fetch silently if we have items, or maybe set loading?
+                    // Original code: if (items.length === 0) setLoading(true);
+
+                    // We need a way to know if we should show loading. 
+                    // Since this runs on focus, we might not want full screen loading every time.
+                    // But to be safe and match original intent:
+                    // Actually, let's keep it simple.
+
+                    const { data: { user } } = await supabase.auth.getUser();
+
+                    if (!user) return;
+
+                    const { data, error } = await supabase
+                        .from('wishlist')
+                        .select(`
+                            id,
+                            products (
+                                id,
+                                title,
+                                price,
+                                storage_path,
+                                description,
+                                currency
+                            )
+                        `)
+                        .eq('user_id', user.id);
+
+                    if (error) throw error;
+                    setItems(data || []);
+                } catch (error) {
+                    console.error('Error fetching wishlist:', error);
+                    showToast('Failed to load wishlist', 'error');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
             fetchWishlist();
-        }, [])
+        }, [showToast])
     );
-
-
-    const fetchWishlist = async () => {
-        try {
-            if (items.length === 0) setLoading(true);
-            const { data: { user } } = await supabase.auth.getUser();
-
-            if (!user) return;
-
-            const { data, error } = await supabase
-                .from('wishlist')
-                .select(`
-                    id,
-                    products (
-                        id,
-                        title,
-                        price,
-                        storage_path,
-                        description,
-                        currency
-                    )
-                `)
-                .eq('user_id', user.id);
-
-            if (error) throw error;
-            setItems(data || []);
-        } catch (error) {
-            console.error('Error fetching wishlist:', error);
-            showToast('Failed to load wishlist', 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
 
 
     const handleRemoveFromWishlist = async (itemId: string) => {

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { ShoppingCart, Trash2, Plus, Minus, Package, ChevronLeft } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -14,67 +14,67 @@ export default function CartScreen() {
 
     useFocusEffect(
         useCallback(() => {
+            const fetchCart = async () => {
+                try {
+                    setLoading(true);
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) {
+                        setCartItems([]);
+                        setTotal(0);
+                        return;
+                    }
+
+                    // First get or create cart
+                    let { data: cart, error: cartFetchError } = await supabase
+                        .from('cart')
+                        .select('id')
+                        .eq('user_id', user.id)
+                        .maybeSingle();
+
+                    if (cartFetchError) throw cartFetchError;
+
+                    if (!cart) {
+                        const { data: newCart, error: cartCreateError } = await supabase
+                            .from('cart')
+                            .insert({ user_id: user.id })
+                            .select('id')
+                            .single();
+
+                        if (cartCreateError) throw cartCreateError;
+                        cart = newCart;
+                    }
+
+                    if (cart) {
+                        const { data: items, error: itemsError } = await supabase
+                            .from('cart_items')
+                            .select(`
+                                id,
+                                quantity,
+                                products (
+                                    id,
+                                    title,
+                                    price,
+                                    storage_path
+                                )
+                            `)
+                            .eq('cart_id', cart.id)
+                            .order('created_at', { ascending: false });
+
+                        if (itemsError) throw itemsError;
+                        setCartItems(items || []);
+                        calculateTotal(items || []);
+                    }
+                } catch (error: any) {
+                    console.error('Error fetching cart:', error);
+                    showToast(error.message || 'Failed to load cart', 'error');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
             fetchCart();
-        }, [])
+        }, [showToast])
     );
-
-    const fetchCart = async () => {
-        try {
-            setLoading(true);
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                setCartItems([]);
-                setTotal(0);
-                return;
-            }
-
-            // First get or create cart
-            let { data: cart, error: cartFetchError } = await supabase
-                .from('cart')
-                .select('id')
-                .eq('user_id', user.id)
-                .maybeSingle();
-
-            if (cartFetchError) throw cartFetchError;
-
-            if (!cart) {
-                const { data: newCart, error: cartCreateError } = await supabase
-                    .from('cart')
-                    .insert({ user_id: user.id })
-                    .select('id')
-                    .single();
-                
-                if (cartCreateError) throw cartCreateError;
-                cart = newCart;
-            }
-
-            if (cart) {
-                const { data: items, error: itemsError } = await supabase
-                    .from('cart_items')
-                    .select(`
-                        id,
-                        quantity,
-                        products (
-                            id,
-                            title,
-                            price,
-                            storage_path
-                        )
-                    `)
-                    .eq('cart_id', cart.id)
-                    .order('created_at', { ascending: false });
-
-                if (itemsError) throw itemsError;
-                setCartItems(items || []);
-                calculateTotal(items || []);
-            }
-        } catch (error: any) {
-            console.error('Error fetching cart:', error);
-            showToast(error.message || 'Failed to load cart', 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const calculateTotal = (items: any[]) => {
         const sum = items.reduce((acc, item) => acc + (item.products?.price || 0) * item.quantity, 0);
@@ -95,7 +95,7 @@ export default function CartScreen() {
                 calculateTotal(updated);
                 return updated;
             });
-        } catch (error) {
+        } catch {
             showToast('Failed to update quantity', 'error');
         }
     };
@@ -110,7 +110,7 @@ export default function CartScreen() {
                 calculateTotal(updated);
                 return updated;
             });
-        } catch (error) {
+        } catch {
             showToast('Failed to remove item', 'error');
         }
     };

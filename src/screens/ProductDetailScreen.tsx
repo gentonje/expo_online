@@ -41,69 +41,69 @@ export default function ProductDetailScreen() {
     }));
 
     useEffect(() => {
+        async function fetchProductDetails() {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('*, product_images(*), profiles(username)')
+                    .eq('id', productId)
+                    .single();
+
+                if (error) throw error;
+                setProduct(data);
+
+                if (user) {
+                    checkWishlistStatus(user.id);
+                }
+                fetchSimilarProducts(data.category);
+            } catch (error) {
+                console.error('Error fetching product details:', error);
+                Alert.alert('Error', 'Could not load product details');
+                navigation.goBack();
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function checkWishlistStatus(userId: string) {
+            try {
+                const { data } = await supabase
+                    .from('wishlist')
+                    .select('id')
+                    .eq('user_id', userId)
+                    .eq('product_id', productId)
+                    .maybeSingle();
+
+                setIsWishlisted(!!data);
+            } catch (error) {
+                console.error('Error checking wishlist status:', error);
+            }
+        }
+
+        async function fetchSimilarProducts(category: string) {
+            try {
+                let query = supabase
+                    .from('products')
+                    .select('*, product_images(*)')
+                    .eq('product_status', 'published')
+                    .neq('id', productId)
+                    .limit(10);
+
+                if (category) {
+                    query = query.eq('category', category);
+                }
+
+                const { data } = await query;
+                setSimilarProducts(data || []);
+            } catch (error) {
+                console.error('Error fetching similar products:', error);
+            }
+        }
+
         fetchProductDetails();
-    }, [productId]);
-
-    async function fetchProductDetails() {
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-
-            const { data, error } = await supabase
-                .from('products')
-                .select('*, product_images(*), profiles(username)')
-                .eq('id', productId)
-                .single();
-
-            if (error) throw error;
-            setProduct(data);
-
-            if (user) {
-                checkWishlistStatus(user.id);
-            }
-            fetchSimilarProducts(data.category);
-        } catch (error) {
-            console.error('Error fetching product details:', error);
-            Alert.alert('Error', 'Could not load product details');
-            navigation.goBack();
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function checkWishlistStatus(userId: string) {
-        try {
-            const { data } = await supabase
-                .from('wishlist')
-                .select('id')
-                .eq('user_id', userId)
-                .eq('product_id', productId)
-                .maybeSingle();
-
-            setIsWishlisted(!!data);
-        } catch (error) {
-            console.error('Error checking wishlist status:', error);
-        }
-    }
-
-    async function fetchSimilarProducts(category: string) {
-        try {
-            let query = supabase
-                .from('products')
-                .select('*, product_images(*)')
-                .eq('product_status', 'published')
-                .neq('id', productId)
-                .limit(10);
-
-            if (category) {
-                query = query.eq('category', category);
-            }
-
-            const { data } = await query;
-            setSimilarProducts(data || []);
-        } catch (error) {
-            console.error('Error fetching similar products:', error);
-        }
-    }
+    }, [productId, navigation]);
 
     const handleAddToCart = async () => {
         cartScale.value = withSpring(0.9, { damping: 10, stiffness: 100 }, () => {
@@ -135,7 +135,7 @@ export default function ProductDetailScreen() {
     if (!product) return null;
 
     // Get all product images sorted by display_order
-    let allImages = product.product_images?.sort((a: any, b: any) => 
+    let allImages = product.product_images?.sort((a: any, b: any) =>
         (a.display_order || 0) - (b.display_order || 0)
     ) || [];
 

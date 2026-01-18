@@ -13,7 +13,6 @@ export default function AdminPanelScreen() {
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
-    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
         fetchUsers();

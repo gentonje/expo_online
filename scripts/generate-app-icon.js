@@ -10,8 +10,8 @@
  * Usage: node scripts/generate-app-icon.js
  */
 
-const fs = require('fs');
-const path = require('path');
+// fs and path were unused
+
 
 // Icon sizes for different platforms
 const iconSizes = {

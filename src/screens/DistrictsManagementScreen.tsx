@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Tex
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { confirmAction } from '../lib/alerts';
-import { Plus, Trash2, Edit2, MapPin, Globe } from 'lucide-react-native';
+import { Plus, Trash2, Edit2, Globe } from 'lucide-react-native';
 
 interface District {
     id: number;

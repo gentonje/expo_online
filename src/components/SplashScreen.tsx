@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function SplashScreen() {
     const insets = useSafeAreaInsets();
-    
+
     // Animation values
     const bagScale = useSharedValue(0);
     const bagRotation = useSharedValue(0);
@@ -108,7 +108,7 @@ export default function SplashScreen() {
             -1,
             true
         ));
-    }, []);
+    }, [bagScale, bagRotation, cartTranslateX, cartOpacity, packageScale, packageRotation, sparkleOpacity, sparkleScale, textOpacity, textTranslateY, progressBar]);
 
     // Animated styles
     const bagAnimatedStyle = useAnimatedStyle(() => ({

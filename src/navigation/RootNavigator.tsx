@@ -1,8 +1,8 @@
 import * as React from 'react';
-import { View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
+// React Native imports removed as they were unused
+
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import SplashScreen from '../components/SplashScreen';
 import {
@@ -10,10 +10,7 @@ import {
     ShoppingCart,
     Heart,
     User,
-    Menu,
     Settings,
-    Info,
-    PlusCircle,
     Package,
     Shield,
     Users,
@@ -35,7 +32,7 @@ import UserManagementScreen from '../screens/UserManagementScreen';
 import AccountManagementScreen from '../screens/AccountManagementScreen';
 import DistrictsManagementScreen from '../screens/DistrictsManagementScreen';
 import SettingsScreen from '../screens/SettingsScreen';
-import AboutScreen from '../screens/AboutScreen';
+
 import CartScreen from '../screens/CartScreen';
 import WishlistScreen from '../screens/WishlistScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -44,77 +41,10 @@ import OrderSuccessScreen from '../screens/OrderSuccessScreen';
 
 
 const Stack = createStackNavigator();
-const Tab = createBottomTabNavigator();
 const Drawer = createDrawerNavigator();
 
-function AppTabs() {
-    return (
-        <Tab.Navigator
-            screenOptions={{
-                tabBarActiveTintColor: '#2563eb',
-                tabBarInactiveTintColor: '#64748b',
-                headerShown: false,
-            }}
-        >
-            <Tab.Screen
-                name="DashboardTab"
-                component={DashboardScreen}
-                options={{
-                    tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
-                    title: 'Dashboard'
-                }}
-            />
-            <Tab.Screen
-                name="BrowseProducts"
-                component={BrowseProductsScreen}
-                options={{
-                    tabBarIcon: ({ color, size }) => <ShoppingBag color={color} size={size} />,
-                    title: 'Browse'
-                }}
-            />
-            <Tab.Screen
-                name="MyProducts"
-                component={MyProductsScreen}
-                options={{
-                    tabBarIcon: ({ color, size }) => <Package color={color} size={size} />,
-                    title: 'My Store'
-                }}
-            />
-            <Tab.Screen
-                name="AddProduct"
-                component={AddProductScreen}
-                options={{
-                    tabBarIcon: ({ color, size }) => <PlusCircle color={color} size={size} />,
-                    title: 'Sell'
-                }}
-            />
-            <Tab.Screen
-                name="Wishlist"
-                component={WishlistScreen}
-                options={{
-                    tabBarIcon: ({ color, size }) => <Heart color={color} size={size} />,
-                    title: 'Saved'
-                }}
-            />
-            <Tab.Screen
-                name="Cart"
-                component={CartScreen}
-                options={{
-                    tabBarIcon: ({ color, size }) => <ShoppingCart color={color} size={size} />,
-                    title: 'Cart'
-                }}
-            />
-            <Tab.Screen
-                name="Profile"
-                component={ProfileScreen}
-                options={{
-                    tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
-                    title: 'Account'
-                }}
-            />
-        </Tab.Navigator>
-    );
-}
+// AppTabs removed as using AppDrawer instead
+
 
 function AppDrawer() {
     const { isAdmin, isSuperAdmin } = useAuth();
