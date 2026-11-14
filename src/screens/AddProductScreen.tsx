@@ -180,8 +180,8 @@ export default function AddProductScreen() {
         <View style={{ flex: 1 }} className="bg-gray-50">
             {/* Header */}
             <View 
-                className="bg-white border-b border-gray-100 flex-row items-center px-4"
-                style={{ paddingTop: insets.top }}
+                className="bg-white border-b border-gray-100 flex-row items-center px-4 pb-3"
+                style={{ paddingTop: insets.top + 12 }}
             >
                 <TouchableOpacity
                     onPress={() => navigation.goBack()}
@@ -326,7 +326,7 @@ export default function AddProductScreen() {
                         <Text className="text-sm font-semibold text-gray-700 mb-2">Product Title *</Text>
                         <View className="flex-row items-center bg-gray-50 rounded-xl border border-gray-200 px-4">
                             <TextInput
-                                className="flex-1 py-4 text-base text-gray-900"
+                                className="flex-1 min-w-0 py-4 text-base text-gray-900"
                                 placeholder="What are you selling?"
                                 placeholderTextColor="#9ca3af"
                                 value={formData.title}
@@ -391,7 +391,7 @@ export default function AddProductScreen() {
                             <View className="flex-row items-center bg-gray-50 rounded-xl border border-gray-200 px-4">
                                 <DollarSign size={18} color="#6b7280" />
                                 <TextInput
-                                    className="flex-1 py-4 text-base text-gray-900 ml-2"
+                                    className="flex-1 min-w-0 py-4 text-base text-gray-900 ml-2"
                                     placeholder="0.00"
                                     placeholderTextColor="#9ca3af"
                                     keyboardType="decimal-pad"
@@ -405,7 +405,7 @@ export default function AddProductScreen() {
                             <View className="flex-row items-center bg-gray-50 rounded-xl border border-gray-200 px-4">
                                 <Hash size={18} color="#6b7280" />
                                 <TextInput
-                                    className="flex-1 py-4 text-base text-gray-900 ml-2"
+                                    className="flex-1 min-w-0 py-4 text-base text-gray-900 ml-2"
                                     placeholder="1"
                                     placeholderTextColor="#9ca3af"
                                     keyboardType="number-pad"

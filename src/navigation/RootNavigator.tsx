@@ -252,7 +252,10 @@ export default function RootNavigator() {
 
     return (
         <NavigationContainer>
-            <Stack.Navigator>
+            {/* On web the stack sizes cards to their content and relies on body scroll,
+                which Expo's template disables. flex: 1 bounds each card to the viewport
+                so the ScrollView inside a screen can scroll. */}
+            <Stack.Navigator screenOptions={{ cardStyle: { flex: 1 } }}>
                 {session ? (
                     <>
                         <Stack.Screen
@@ -268,7 +271,7 @@ export default function RootNavigator() {
                         <Stack.Screen
                             name="AddProduct"
                             component={AddProductScreen}
-                            options={{ title: 'List New Product' }}
+                            options={{ headerShown: false }}
                         />
                         <Stack.Screen
                             name="EditProduct"
