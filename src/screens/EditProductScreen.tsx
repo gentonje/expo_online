@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput, Image, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Image, KeyboardAvoidingView, Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { showMessage } from '../lib/alerts';
+import { validateProductForm } from '../lib/product-validation';
 import { Camera, Package, MapPin, Globe, Tag, ArrowLeft, DollarSign, Hash, Check, X, Image as ImageIcon, Edit } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getImageUrl } from '../lib/image-utils';
+import { getImageUrl, uploadProductImage, removeStorageFiles } from '../lib/image-utils';
 
 const CATEGORIES = ['Electronics', 'Fashion', 'Home', 'Beauty', 'Sports', 'Books', 'Toys', 'Other'];
 
@@ -36,6 +38,7 @@ export default function EditProductScreen() {
         validity_period: 'day'
     });
     const [images, setImages] = useState<ImageItem[]>([]);
+    const [originalStoragePath, setOriginalStoragePath] = useState<string | null>(null);
     const [countries, setCountries] = useState<any[]>([]);
     const [districts, setDistricts] = useState<any[]>([]);
 
@@ -62,6 +65,8 @@ export default function EditProductScreen() {
                 .single();
 
             if (productError) throw productError;
+
+            setOriginalStoragePath(product.storage_path ?? null);
 
             // Set form data
             setFormData({
@@ -106,7 +111,7 @@ export default function EditProductScreen() {
             }
         } catch (error: any) {
             console.error('Error fetching product:', error);
-            Alert.alert('Error', 'Failed to load product data');
+            showMessage('Error', 'Failed to load product data');
             navigation.goBack();
         } finally {
             setLoading(false);
@@ -124,7 +129,7 @@ export default function EditProductScreen() {
 
     const pickImage = async (isMain: boolean = false) => {
         if (images.length >= 5) {
-            Alert.alert('Limit Reached', 'You can add up to 5 images (1 main + 4 additional)');
+            showMessage('Limit Reached', 'You can add up to 5 images (1 main + 4 additional)');
             return;
         }
 
@@ -157,140 +162,99 @@ export default function EditProductScreen() {
 
     const setAsMain = (index: number) => {
         setImages(prev => {
-            const updated = [...prev];
-            updated.forEach(img => img.isMain = false);
-            const selected = updated[index];
-            selected.isMain = true;
-            updated.splice(index, 1);
-            updated.unshift(selected);
-            return updated;
+            const selected = { ...prev[index], isMain: true };
+            const others = prev.filter((_, i) => i !== index).map(img => ({ ...img, isMain: false }));
+            return [selected, ...others];
         });
     };
 
     const handleSubmit = async () => {
-        if (!formData.title || !formData.price || images.length === 0 || !formData.country_id || !formData.county) {
-            Alert.alert('Validation Error', 'Please fill in all required fields and add at least one image');
+        if (saving) return;
+
+        const validation = validateProductForm(formData, images);
+        if (!validation.ok) {
+            showMessage('Validation Error', validation.message);
             return;
         }
 
-        const hasMainImage = images.some(img => img.isMain);
-        if (!hasMainImage) {
-            Alert.alert('Validation Error', 'Please set at least one image as the main image');
-            return;
-        }
+        const uploadedPaths: string[] = [];
 
         try {
             setSaving(true);
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('User not authenticated');
+            if (!user) throw new Error('Your session has expired. Please sign in again.');
 
-            // Get existing image IDs to track what to delete
-            const existingImageIds = images
-                .filter(img => img.isExisting && img.existingId)
-                .map(img => img.existingId!);
-            
-            // Fetch current product images to find ones to delete
-            const { data: currentImages } = await supabase
+            const { data: currentImages, error: currentImagesError } = await supabase
                 .from('product_images')
-                .select('id')
+                .select('id, storage_path')
                 .eq('product_id', productId);
-            
-            const imagesToDelete = currentImages
-                ?.filter((img: any) => !existingImageIds.includes(img.id))
-                .map((img: any) => img.id) || [];
 
-            // Upload new images (non-existing ones)
-            const newImages = images.filter(img => !img.isExisting);
-            const uploadedImages: Array<{ path: string; isMain: boolean; order: number }> = [];
+            if (currentImagesError) throw currentImagesError;
 
-            for (let i = 0; i < newImages.length; i++) {
-                const image = newImages[i];
-                // Check if it's a local file (starts with file://) or a URL
-                if (image.uri.startsWith('file://') || image.uri.startsWith('http://') || image.uri.startsWith('https://')) {
-                    const response = await fetch(image.uri);
-                    const blob = await response.blob();
-                    const fileName = `${Date.now()}-${i}-${Math.random().toString(36).substring(7)}.jpg`;
-                    const filePath = `${formData.country_id}/${formData.category}/${fileName}`;
-
-                    const { error: uploadError } = await supabase.storage
-                        .from('images')
-                        .upload(filePath, blob);
-
-                    if (uploadError) throw uploadError;
-
-                    const imageIndex = images.findIndex(img => img === image);
-                    uploadedImages.push({
-                        path: filePath,
-                        isMain: image.isMain,
-                        order: imageIndex
-                    });
+            // 1. Upload every newly picked image, whatever its URI scheme
+            const finalImages: Array<{ path: string; isMain: boolean; order: number; existingId?: number }> = [];
+            for (let index = 0; index < images.length; index++) {
+                const img = images[index];
+                if (img.isExisting && img.existingPath) {
+                    finalImages.push({ path: img.existingPath, isMain: img.isMain, order: index, existingId: img.existingId });
+                } else {
+                    const path = await uploadProductImage(user.id, img.uri, index);
+                    uploadedPaths.push(path);
+                    finalImages.push({ path, isMain: img.isMain, order: index });
                 }
             }
 
-            // Prepare all images with their paths
-            const allImagePaths = images.map((img, index) => {
-                if (img.isExisting) {
-                    return {
-                        path: img.existingPath!,
-                        isMain: img.isMain,
-                        order: index,
-                        existingId: img.existingId
-                    };
-                } else {
-                    const uploaded = uploadedImages.find(u => {
-                        const imgIndex = images.findIndex(i => i === img);
-                        return u.order === imgIndex;
-                    });
-                    return {
-                        path: uploaded?.path || '',
-                        isMain: img.isMain,
-                        order: index,
-                        existingId: undefined
-                    };
-                }
-            });
+            const mainImagePath = (finalImages.find(img => img.isMain) ?? finalImages[0]).path;
 
-            const mainImagePath = allImagePaths.find(img => img.isMain)?.path || allImagePaths[0].path;
-
-            // Update product
-            const { error: productError } = await supabase
+            // 2. Update product; RLS silently matches 0 rows when the user isn't allowed
+            const { data: updatedRows, error: productError } = await supabase
                 .from('products')
                 .update({
-                    title: formData.title,
-                    description: formData.description,
-                    price: parseFloat(formData.price),
+                    title: formData.title.trim(),
+                    description: formData.description.trim(),
+                    price: validation.price,
                     category: formData.category,
-                    available_quantity: parseInt(formData.available_quantity),
+                    available_quantity: validation.quantity,
                     county: formData.county,
-                    country_id: parseInt(formData.country_id),
+                    country_id: validation.countryId,
                     storage_path: mainImagePath,
                     validity_period: formData.validity_period
                 })
-                .eq('id', productId);
+                .eq('id', productId)
+                .select('id');
 
             if (productError) throw productError;
+            if (!updatedRows || updatedRows.length === 0) {
+                throw new Error('This product could not be updated. It may have been removed, or you may not have permission to edit it.');
+            }
 
-            // Delete removed images
-            if (imagesToDelete.length > 0) {
-                await supabase
+            // 3. Remove image records the user deleted
+            const keptIds = new Set(finalImages.map(img => img.existingId).filter(Boolean));
+            const removedRecords = (currentImages || []).filter(img => !keptIds.has(img.id));
+            if (removedRecords.length > 0) {
+                const { error: deleteError } = await supabase
                     .from('product_images')
                     .delete()
-                    .in('id', imagesToDelete);
+                    .in('id', removedRecords.map(img => img.id));
+                if (deleteError) throw deleteError;
             }
 
-            // Update existing images
-            for (const img of allImagePaths.filter(i => i.existingId)) {
-                await supabase
-                    .from('product_images')
-                    .update({
-                        is_main: img.isMain,
-                        display_order: img.order
-                    })
-                    .eq('id', img.existingId);
-            }
+            // 4. Update order and main flag on kept images
+            const updateResults = await Promise.all(
+                finalImages
+                    .filter(img => img.existingId)
+                    .map(img =>
+                        supabase
+                            .from('product_images')
+                            .update({ is_main: img.isMain, display_order: img.order })
+                            .eq('id', img.existingId!)
+                    )
+            );
+            const updateError = updateResults.find(result => result.error)?.error;
+            if (updateError) throw updateError;
 
-            // Insert new images
-            const newImageRecords = allImagePaths
+            // 5. Insert records for new images (and legacy products that only had storage_path)
+            const newImageRecords = finalImages
                 .filter(img => !img.existingId)
                 .map(img => ({
                     product_id: productId,
@@ -303,15 +267,22 @@ export default function EditProductScreen() {
                 const { error: imageError } = await supabase
                     .from('product_images')
                     .insert(newImageRecords);
-
                 if (imageError) throw imageError;
             }
 
-            Alert.alert('Success', 'Product updated successfully!');
+            // 6. Delete files no longer referenced by this product
+            const keptPaths = new Set(finalImages.map(img => img.path));
+            await removeStorageFiles(
+                [...removedRecords.map(img => img.storage_path), originalStoragePath]
+                    .filter(path => path && !keptPaths.has(path))
+            );
+
+            showMessage('Success', 'Product updated successfully!');
             navigation.goBack();
         } catch (error: any) {
             console.error('Error updating product:', error);
-            Alert.alert('Error', error.message || 'Failed to update product');
+            await removeStorageFiles(uploadedPaths);
+            showMessage('Error', error.message || 'Failed to update product');
         } finally {
             setSaving(false);
         }

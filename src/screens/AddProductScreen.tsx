@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput, Image, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Image, KeyboardAvoidingView, Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { showMessage } from '../lib/alerts';
+import { uploadProductImage, removeStorageFiles } from '../lib/image-utils';
+import { validateProductForm } from '../lib/product-validation';
 import { Camera, Package, MapPin, Globe, Tag, ArrowLeft, DollarSign, Hash, Check, X, Image as ImageIcon } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
@@ -58,7 +61,7 @@ export default function AddProductScreen() {
     const pickImage = async (isMain: boolean = false) => {
         // Check if we can add more images
         if (images.length >= 5) {
-            Alert.alert('Limit Reached', 'You can add up to 5 images (1 main + 4 additional)');
+            showMessage('Limit Reached', 'You can add up to 5 images (1 main + 4 additional)');
             return;
         }
 
@@ -93,87 +96,62 @@ export default function AddProductScreen() {
 
     const setAsMain = (index: number) => {
         setImages(prev => {
-            const updated = [...prev];
-            // Mark all as not main
-            updated.forEach(img => img.isMain = false);
-            // Set selected as main and move to first position
-            const selected = updated[index];
-            selected.isMain = true;
-            updated.splice(index, 1);
-            updated.unshift(selected);
-            return updated;
+            const selected = { ...prev[index], isMain: true };
+            const others = prev.filter((_, i) => i !== index).map(img => ({ ...img, isMain: false }));
+            return [selected, ...others];
         });
     };
 
     const handleSubmit = async () => {
-        if (!formData.title || !formData.price || images.length === 0 || !formData.country_id || !formData.county) {
-            Alert.alert('Validation Error', 'Please fill in all required fields and add at least one image');
+        if (loading) return;
+
+        const validation = validateProductForm(formData, images);
+        if (!validation.ok) {
+            showMessage('Validation Error', validation.message);
             return;
         }
 
-        // Ensure at least one main image
-        const hasMainImage = images.some(img => img.isMain);
-        if (!hasMainImage) {
-            Alert.alert('Validation Error', 'Please set at least one image as the main image');
-            return;
-        }
+        const uploadedPaths: string[] = [];
+        let createdProductId: string | null = null;
 
         try {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('User not authenticated');
+            if (!user) throw new Error('Your session has expired. Please sign in again.');
 
-            // 1. Upload all images to Storage
-            const uploadedImages: Array<{ path: string; isMain: boolean; order: number }> = [];
-            
+            // 1. Upload all images to the user's storage folder
             for (let i = 0; i < images.length; i++) {
-                const image = images[i];
-                const response = await fetch(image.uri);
-                const blob = await response.blob();
-                const fileName = `${Date.now()}-${i}-${Math.random().toString(36).substring(7)}.jpg`;
-                const filePath = `${formData.country_id}/${formData.category}/${fileName}`;
-
-                const { error: uploadError } = await supabase.storage
-                    .from('images')
-                    .upload(filePath, blob);
-
-                if (uploadError) throw uploadError;
-
-                uploadedImages.push({
-                    path: filePath,
-                    isMain: image.isMain,
-                    order: i
-                });
+                uploadedPaths.push(await uploadProductImage(user.id, images[i].uri, i));
             }
 
-            // Get main image path for product storage_path
-            const mainImagePath = uploadedImages.find(img => img.isMain)?.path || uploadedImages[0].path;
+            const mainIndex = Math.max(images.findIndex(img => img.isMain), 0);
 
-            // 2. Insert Product
+            // 2. Insert product
             const { data: product, error: productError } = await supabase
                 .from('products')
                 .insert({
-                    title: formData.title,
-                    description: formData.description,
-                    price: parseFloat(formData.price),
+                    title: formData.title.trim(),
+                    description: formData.description.trim(),
+                    price: validation.price,
                     category: formData.category,
-                    available_quantity: parseInt(formData.available_quantity),
+                    available_quantity: validation.quantity,
                     user_id: user.id,
                     county: formData.county,
-                    country_id: parseInt(formData.country_id),
-                    storage_path: mainImagePath,
+                    country_id: validation.countryId,
+                    storage_path: uploadedPaths[mainIndex],
                     validity_period: formData.validity_period
                 })
-                .select()
+                .select('id')
                 .single();
 
             if (productError) throw productError;
+            createdProductId = product.id;
 
-            // 3. Insert all Product Image Records
-            const imageRecords = uploadedImages.map((img, index) => ({
+            // 3. Insert image records
+            const imageRecords = uploadedPaths.map((path, index) => ({
                 product_id: product.id,
-                storage_path: img.path,
-                is_main: img.isMain,
+                storage_path: path,
+                is_main: index === mainIndex,
                 display_order: index
             }));
 
@@ -183,11 +161,16 @@ export default function AddProductScreen() {
 
             if (imageError) throw imageError;
 
-            Alert.alert('Success', 'Product listed successfully!');
+            showMessage('Success', 'Product listed successfully!');
             navigation.goBack();
         } catch (error: any) {
             console.error('Error adding product:', error);
-            Alert.alert('Error', error.message || 'Failed to list product');
+            // Roll back so a failed listing leaves no half-created product or orphaned files
+            if (createdProductId) {
+                await supabase.from('products').delete().eq('id', createdProductId);
+            }
+            await removeStorageFiles(uploadedPaths);
+            showMessage('Error', error.message || 'Failed to list product');
         } finally {
             setLoading(false);
         }

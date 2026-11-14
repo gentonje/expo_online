@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { confirmAction } from '../lib/alerts';
+import { confirmAction, showMessage } from '../lib/alerts';
+import { removeStorageFiles } from '../lib/image-utils';
 import { Package, Trash2, Plus, Edit } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import ProductGrid from '../components/ProductGrid';
 import ProductCard from '../components/ProductCard';
 
@@ -15,13 +16,15 @@ export default function MyProductsScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const navigation = useNavigation<any>();
 
-    useEffect(() => {
-        fetchMyProducts();
-    }, []);
+    // Refetch on focus so adds and edits show up after navigating back
+    useFocusEffect(
+        useCallback(() => {
+            fetchMyProducts();
+        }, [])
+    );
 
     const fetchMyProducts = async () => {
         try {
-            setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
@@ -42,7 +45,7 @@ export default function MyProductsScreen() {
             setProducts(data || []);
         } catch (error: any) {
             console.error('Error fetching my products:', error);
-            Alert.alert('Error', 'Failed to load your products');
+            showMessage('Error', 'Failed to load your products');
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -54,8 +57,7 @@ export default function MyProductsScreen() {
         fetchMyProducts();
     };
 
-    const handleDelete = async (id: string) => {
-        console.log('Delete button clicked for product ID:', id);
+    const handleDelete = (product: any) => {
         confirmAction({
             title: "Delete Product",
             message: "Are you sure you want to delete this product?",
@@ -63,17 +65,28 @@ export default function MyProductsScreen() {
             style: "destructive",
             onConfirm: async () => {
                 try {
-                    console.log('Attempting to delete product with ID:', id);
-                    const result = await supabase.from('products').delete().eq('id', id);
-                    console.log('Delete result:', result);
+                    const { data: deletedRows, error } = await supabase
+                        .from('products')
+                        .delete()
+                        .eq('id', product.id)
+                        .select('id');
 
-                    if (result.error) throw result.error;
+                    if (error) throw error;
+                    // RLS returns no error when nothing matched, so confirm a row was removed
+                    if (!deletedRows || deletedRows.length === 0) {
+                        throw new Error('This product could not be deleted. It may already be removed, or you may not have permission.');
+                    }
 
-                    setProducts(prev => prev.filter(p => p.id !== id));
-                    Alert.alert('Success', 'Product deleted successfully');
+                    await removeStorageFiles([
+                        product.storage_path,
+                        ...(product.product_images || []).map((img: any) => img.storage_path)
+                    ]);
+
+                    setProducts(prev => prev.filter(p => p.id !== product.id));
+                    showMessage('Success', 'Product deleted successfully');
                 } catch (error: any) {
                     console.error('Error deleting product:', error);
-                    Alert.alert('Error', error.message || 'Failed to delete product');
+                    showMessage('Error', error.message || 'Failed to delete product');
                 }
             }
         });
@@ -130,7 +143,7 @@ export default function MyProductsScreen() {
                                                     if (product.user_id === user?.id) {
                                                         navigation.navigate('EditProduct', { productId: product.id });
                                                     } else {
-                                                        Alert.alert('Permission Denied', 'You can only edit your own products');
+                                                        showMessage('Permission Denied', 'You can only edit your own products');
                                                     }
                                                 }}
                                                 className={`flex-1 py-2 rounded-lg items-center flex-row justify-center ${product.user_id === user?.id ? 'bg-blue-50' : 'bg-gray-50 opacity-50'}`}
@@ -141,9 +154,9 @@ export default function MyProductsScreen() {
                                             <TouchableOpacity
                                                 onPress={() => {
                                                     if (product.user_id === user?.id) {
-                                                        handleDelete(product.id);
+                                                        handleDelete(product);
                                                     } else {
-                                                        Alert.alert('Permission Denied', 'You can only delete your own products');
+                                                        showMessage('Permission Denied', 'You can only delete your own products');
                                                     }
                                                 }}
                                                 className={`flex-1 py-2 rounded-lg items-center flex-row justify-center ${product.user_id === user?.id ? 'bg-red-50' : 'bg-gray-50 opacity-50'}`}

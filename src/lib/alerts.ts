@@ -9,6 +9,15 @@ interface ConfirmOptions {
     style?: 'default' | 'destructive' | 'cancel';
 }
 
+/** Alert.alert is a no-op on react-native-web, so fall back to window.alert there. */
+export const showMessage = (title: string, message: string) => {
+    if (Platform.OS === 'web') {
+        window.alert(`${title}\n\n${message}`);
+    } else {
+        Alert.alert(title, message);
+    }
+};
+
 export const confirmAction = ({
     title,
     message,
